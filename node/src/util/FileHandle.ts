@@ -28,11 +28,13 @@ export enum ESeekOrigin {
  */
 export class FileHandle
 {
+	public readonly filepath: string;
 	public readonly fd: number;
 	protected _position: number;
 
 	constructor(filepath: string)
 	{
+		this.filepath = filepath;
 		this.fd = fs.openSync(filepath, 'r');
 		this._position = 0;
 	}
@@ -80,6 +82,22 @@ export class FileHandle
 		// Update the position after reading
 		this._position += bytesRead;
 		return bytesRead;
+	}
+
+	/**
+	 * Reads a string of `length` bytes from the current position in the file.
+	 * @param length - The number of bytes to read.
+	 * @returns The string read from the file.
+	 */
+	public readString(length: number): string {
+		// Create a buffer to hold the data
+		const buffer = Buffer.alloc(length);
+		
+		// Read the specified number of bytes from the current position
+		this.read(buffer, 0, length);
+		
+		// Convert the buffer to a string and return it
+		return buffer.toString('utf-8').replace(/\0/g, '');  // Remove any null byte padding
 	}
 
 	public seek(offset: number, whence: ESeekOrigin)

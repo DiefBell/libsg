@@ -9,30 +9,25 @@ enum EIsometric {
     LARGE_TILE_BYTES = 3200
 };
 
-export interface ISgImageRecord {
-    offset: number;
-    length: number;
-    uncompressed_length: number;
-    invert_offset: number;
-    width: number;
-    height: number;
-    type: number;
-    flags: [string, string, string, string];
-    bitmap_id: number;
-    alpha_offset: number;
-    alpha_length: number;
+export class SgImageRecord {
+    public readonly offset: number;
+    public readonly length: number;
+    public readonly uncompressed_length: number;
+    public readonly invert_offset: number;
+    public readonly width: number;
+    public readonly height: number;
+    public readonly type: number;
+    public readonly flags: [string, string, string, string];
+    public readonly bitmap_id: number;
+    public readonly alpha_offset: number;
+    public readonly alpha_length: number;
 }
 
-export interface ISgImage {
-    record: ISgImageRecord;
-    workRecord: ISgImageRecord;
-    parent: SgBitmap;
-    error: string | null;
-    invert: boolean;
-    imageId: number;
-}
-
-export class SgImage
-{
-	
+export class SgImage {
+    public readonly record: SgImageRecord;
+    public readonly workRecord: SgImageRecord;
+    public readonly parent: SgBitmap;
+    public readonly error: string | null;
+    public readonly invert: boolean;
+    public readonly imageId: number;
 }
