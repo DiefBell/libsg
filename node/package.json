@@ -13,7 +13,8 @@
 		"typescript": "^5.8.2"
 	},
 	"scripts": {
-		"build": "tsc",
-		"watch": "tsc -w"
+		"build": "tsc -p tsconfig.dist.json",
+		"watch": "tsc -w -p tsconfig.dist.json",
+		"example": "tsx example/example.ts"
 	}
 }

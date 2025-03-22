@@ -1,0 +1,9 @@
+{
+	"exclude": ["example"],
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"declaration": true,
+		"noEmit": false,
+		"outDir": "./dist"
+	},
+}
