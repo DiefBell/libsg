@@ -76,6 +76,22 @@ export class SgFile {
 		);
 		fileHandle.seek(pos, ESeekOrigin.SEEK_SET);
 
+		const includeAlpha = sgFile.header.version >= 0xd6
+
+		// The first one is a dummy/null record
+		SgImage.FromFileHandle(fileHandle, 0, includeAlpha);
+
+		for(let i = 0; i < sgFile.header.numImageRecords; i++) {
+			const sgImage = SgImage.FromFileHandle(fileHandle, i + 1, includeAlpha);
+			const invertOffset = sgImage.record.invert_offset;
+
+			if(invertOffset < 0 && (i + invertOffset) >= 0) {
+				sgImage.setInvert(sgFile.images[i + invertOffset]);
+			}
+
+			// TODO...
+		}
+
 		return sgFile;
 	}
 
