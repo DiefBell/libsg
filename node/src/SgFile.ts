@@ -1,6 +1,7 @@
 import { SgBitmap } from "./SgBitmap";
 import { SgImage } from "./SgImage";
-import { FileHandle, readInt32Le, readUInt32Le } from "./util";
+import { readInt32Le, readUInt32Le } from "./util";
+import { ESeekOrigin, FileHandle } from "./util/FileHandle";
 import * as fs from "fs";
 
 export class SgHeader {
@@ -35,9 +36,7 @@ export class SgHeader {
 		this.filesize555 = readUInt32Le(file);
 		this.filesizeExternal = readUInt32Le(file);
 
-		if (file.position < SgHeader.SG_HEADER_SIZE) {
-            file.setPosition(SgHeader.SG_HEADER_SIZE);
-        }
+		file.seek(SgHeader.SG_HEADER_SIZE, ESeekOrigin.SEEK_SET);
 	}
 }
 
