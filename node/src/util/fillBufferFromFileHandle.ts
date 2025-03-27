@@ -1,7 +1,8 @@
+import { SgImage } from "../SgImage";
 import { ESeekOrigin, FileHandle } from "./FileHandle";
 
-export const fillBufferFromFileHandle = (img: any, file: FileHandle): Buffer | null => {
-	const dataLength = img.workRecord.length + img.workRecord.alpha_length;
+export const fillBufferFromFileHandle = (img: SgImage, file: FileHandle): Buffer | null => {
+	const dataLength = img.workRecord.length + img.workRecord.alphaLength;
 	if (dataLength <= 0) {
 	  throw new Error(`Data length invalid (${dataLength})`);
 	}

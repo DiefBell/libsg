@@ -1,7 +1,7 @@
 {
 	"name": "libsg",
 	"version": "1.0.0",
-	"main": "dist/index.js",
+	"module": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"files": [
 		"dist"
@@ -16,5 +16,8 @@
 		"build": "tsc -p tsconfig.dist.json",
 		"watch": "tsc -w -p tsconfig.dist.json",
 		"example": "tsx example/example.ts"
+	},
+	"dependencies": {
+		"sharp": "^0.33.5"
 	}
 }

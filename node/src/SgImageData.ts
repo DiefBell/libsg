@@ -6,20 +6,20 @@ import { fillBufferFromFileHandle } from "./util/fillBufferFromFileHandle";
 export class SgImageData
 {
 	
-    private static readonly ISOMETRIC_TILE_WIDTH = 58;
-    private static readonly ISOMETRIC_TILE_HEIGHT = 30;
-    private static readonly ISOMETRIC_TILE_BYTES = 1800;
-    private static readonly ISOMETRIC_LARGE_TILE_WIDTH = 78;
-    private static readonly ISOMETRIC_LARGE_TILE_HEIGHT = 40;
-    private static readonly ISOMETRIC_LARGE_TILE_BYTES = 320;
+    public static readonly ISOMETRIC_TILE_WIDTH = 58;
+    public static readonly ISOMETRIC_TILE_HEIGHT = 30;
+    public static readonly ISOMETRIC_TILE_BYTES = 1800;
+    public static readonly ISOMETRIC_LARGE_TILE_WIDTH = 78;
+    public static readonly ISOMETRIC_LARGE_TILE_HEIGHT = 40;
+    public static readonly ISOMETRIC_LARGE_TILE_BYTES = 320;
 
-	private readonly width: number;
-	private readonly height: number;
+	public readonly width: number;
+	public readonly height: number;
 
-	private readonly rMask: number;
-	private readonly gMask: number
-	private readonly bMask: number
-	private readonly aMask: number
+	public readonly rMask: number;
+	public readonly gMask: number
+	public readonly bMask: number
+	public readonly aMask: number
 
 	public readonly data: Uint32Array;
 
@@ -38,15 +38,16 @@ export class SgImageData
 			throw new Error("No image data available");
 		}
 
-		const fileHandle555 = new FileHandle(filename555, "rb");
+		const fileHandle555 = new FileHandle(filename555, "r");
 		const buffer = fillBufferFromFileHandle(sgImage, fileHandle555);
 		if (!buffer)
 		{
 			throw new Error("Failed to read image data");
 		}
 
+		const BYTES_PER_PIXEL = 4;
 		const pixels = new Uint32Array(
-			sgImage.workRecord.width * sgImage.workRecord.height
+			sgImage.workRecord.width * sgImage.workRecord.height * BYTES_PER_PIXEL
 		).fill(0);
 
 		switch(sgImage.workRecord.type)
@@ -86,6 +87,7 @@ export class SgImageData
 
 	private loadPlainImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
+		console.log("loadPlainImage");
 		if(sgImage.workRecord.height * sgImage.workRecord.width * 2 !== sgImage.workRecord.length) {
 			throw new Error("Image data length does not match image size");
 		}
@@ -109,6 +111,7 @@ export class SgImageData
 	 */
 	private loadIsometricImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
+		console.log("loadIsometricImage");
 		this.writeIsometricBase(sgImage, pixels, buffer);
 		this.writeTransparentImage(
 			sgImage,
@@ -119,6 +122,7 @@ export class SgImageData
 
 	private loadSpriteImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
+		console.log("loadSpriteImage");
 		this.writeTransparentImage(sgImage, pixels, buffer, sgImage.workRecord.length);
 	}
 

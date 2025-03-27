@@ -62,7 +62,7 @@ export class SgFile {
 		}
 
 		if(sgFile.bitmaps.length > 1 && sgFile.images.length === sgFile.bitmaps[0].images.length) {
-			console.log(`SG File has ${sgFile.bitmaps.length} bitmaps but only the first is in use`);
+			console.warn(`SG File has ${sgFile.bitmaps.length} bitmaps but only the first is in use`);
 			// Remove the bitmaps other than the first
 			sgFile.bitmaps.splice(1);
 		}
