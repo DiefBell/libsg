@@ -67,6 +67,7 @@ export class SgFile {
 			sgFile.bitmaps.splice(1);
 		}
 
+		fileHandle.close();
 		return sgFile;
 	}
 

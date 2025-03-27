@@ -47,6 +47,11 @@ export class FileHandle
 		fs.closeSync(this.fd);
 	}
 
+	public close()
+	{
+		fs.closeSync(this.fd);
+	}
+
 	/**
 	 * Sets the position to a specified value.
 	 * @param position - The new position to set.
