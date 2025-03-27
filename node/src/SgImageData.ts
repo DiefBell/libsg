@@ -87,7 +87,6 @@ export class SgImageData
 
 	private loadPlainImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
-		console.log("loadPlainImage");
 		if(sgImage.workRecord.height * sgImage.workRecord.width * 2 !== sgImage.workRecord.length) {
 			throw new Error("Image data length does not match image size");
 		}
@@ -111,7 +110,6 @@ export class SgImageData
 	 */
 	private loadIsometricImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
-		console.log("loadIsometricImage");
 		this.writeIsometricBase(sgImage, pixels, buffer);
 		this.writeTransparentImage(
 			sgImage,
@@ -122,7 +120,6 @@ export class SgImageData
 
 	private loadSpriteImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
-		console.log("loadSpriteImage");
 		this.writeTransparentImage(sgImage, pixels, buffer, sgImage.workRecord.length);
 	}
 
