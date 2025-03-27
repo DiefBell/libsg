@@ -32,10 +32,10 @@ export class FileHandle
 	public readonly fd: number;
 	protected _position: number;
 
-	constructor(filepath: string)
+	constructor(filepath: string, openMode: fs.Mode = "r")
 	{
 		this.filepath = filepath;
-		this.fd = fs.openSync(filepath, 'r');
+		this.fd = fs.openSync(filepath, openMode);
 		this._position = 0;
 	}
 
@@ -118,4 +118,9 @@ export class FileHandle
 				throw new Error(`Invalid whence value: ${whence}`);
 		}
 	}
+
+	public eof(): boolean {
+        const fileStats = fs.fstatSync(this.fd);
+        return this._position >= fileStats.size;
+    }
 }

@@ -1,49 +1,9 @@
-import { SgBitmap, SgBitmapRecord } from "./SgBitmap";
+import { SgBitmap } from "./SgBitmap";
+import { SgBitmapRecord } from "./SgBitmapRecord";
 import { SgImage } from "./SgImage";
-import { readInt32Le, readUInt32Le } from "./util/readNumberLe";
 import { ESeekOrigin, FileHandle } from "./util/FileHandle";
 import * as fs from "fs";
-
-export class SgHeader {
-	public static readonly SG_HEADER_SIZE = 680;
-
-	constructor(
-		public readonly sgFilesize: number,
-		public readonly version: number,
-		public readonly unknown1: number,
-
-		public readonly maxImageRecords: number,
-		public readonly numImageRecords: number,
-		
-		public readonly numBitmapRecords: number,
-		public readonly numBitmapRecordsWithoutSystem: number, /* ? */
-
-		public readonly totalFilesize: number,
-		public readonly filesize555: number,
-		public readonly filesizeExternal: number,
-	){}
-
-	public static FromFileHandle(file: FileHandle): SgHeader {
-		const sgHeader = new SgHeader(
-			readUInt32Le(file),
-			readUInt32Le(file),
-			readUInt32Le(file),
-
-			readInt32Le(file),
-			readInt32Le(file),
-
-			readInt32Le(file),
-			readInt32Le(file),
-
-			readUInt32Le(file),
-			readUInt32Le(file),
-			readUInt32Le(file),
-		);
-
-		file.seek(SgHeader.SG_HEADER_SIZE, ESeekOrigin.SEEK_SET);
-		return sgHeader;
-	}
-}
+import { SgHeader } from "./SgHeader";
 
 export class SgFile {
 	public readonly bitmaps: SgBitmap[];
@@ -83,13 +43,28 @@ export class SgFile {
 
 		for(let i = 0; i < sgFile.header.numImageRecords; i++) {
 			const sgImage = SgImage.FromFileHandle(fileHandle, i + 1, includeAlpha);
-			const invertOffset = sgImage.record.invert_offset;
 
+			const invertOffset = sgImage.record.invertOffset;
 			if(invertOffset < 0 && (i + invertOffset) >= 0) {
 				sgImage.setInvert(sgFile.images[i + invertOffset]);
 			}
 
-			// TODO...
+			const bitmapId = sgImage.getBitmapId();
+			if(bitmapId >= 0 && bitmapId < sgFile.bitmaps.length) {
+				sgFile.bitmaps[bitmapId].images.push(sgImage);
+				sgImage.setParent(sgFile.bitmaps[bitmapId]);
+			}
+			else {
+				console.warn(`Image ${i} has no parent: ${bitmapId}`);
+			}
+
+			sgFile.images.push(sgImage);
+		}
+
+		if(sgFile.bitmaps.length > 1 && sgFile.images.length === sgFile.bitmaps[0].images.length) {
+			console.log(`SG File has ${sgFile.bitmaps.length} bitmaps but only the first is in use`);
+			// Remove the bitmaps other than the first
+			sgFile.bitmaps.splice(1);
 		}
 
 		return sgFile;
