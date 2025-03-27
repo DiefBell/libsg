@@ -1,0 +1,8 @@
+{
+	"files.associations": {
+		"pre-commit": "shellscript",
+		"pre-push": "shellscript",
+		"*.h": "c",
+		"*.c": "c"
+	}
+}
