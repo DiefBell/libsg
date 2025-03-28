@@ -5,7 +5,6 @@ import { fillBufferFromFileHandle } from "./util/fillBufferFromFileHandle";
 
 export class SgImageData
 {
-	
     public static readonly ISOMETRIC_TILE_WIDTH = 58;
     public static readonly ISOMETRIC_TILE_HEIGHT = 30;
     public static readonly ISOMETRIC_TILE_BYTES = 1800;
@@ -45,7 +44,7 @@ export class SgImageData
 			throw new Error("Failed to read image data");
 		}
 
-		const BYTES_PER_PIXEL = 4;
+		const BYTES_PER_PIXEL = 4; // RGBA
 		const pixels = new Uint32Array(
 			sgImage.workRecord.width * sgImage.workRecord.height * BYTES_PER_PIXEL
 		).fill(0);
@@ -72,6 +71,11 @@ export class SgImageData
 		
 			default:
 				throw new Error(`Unknown image type: ${sgImage.workRecord.type}`)
+		}
+
+		if (sgImage.workRecord.alphaLength) {
+			const alphaBuffer = buffer.subarray(sgImage.workRecord.length);
+			this.loadAlphaMask(sgImage, pixels, alphaBuffer);
 		}
 
 		if(sgImage.invert) this.mirrorResult(sgImage, pixels);
@@ -119,11 +123,6 @@ export class SgImageData
 	}
 
 	private loadSpriteImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
-	{
-		this.writeTransparentImage(sgImage, pixels, buffer, sgImage.workRecord.length);
-	}
-
-	private writeIsometricImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
 		this.writeTransparentImage(sgImage, pixels, buffer, sgImage.workRecord.length);
 	}
@@ -241,7 +240,7 @@ export class SgImageData
 		tileHeight: number
 	): void
 	{
-		const halfHeight = tileHeight / 2;
+		const halfHeight = Math.floor(tileHeight / 2);
 
 		let i = 0;
 		for(let y = 0; y < halfHeight; y++)
@@ -263,7 +262,7 @@ export class SgImageData
 
 		for(let y = halfHeight; y < tileHeight; y++)
 		{
-			const start = 2 * (y - halfHeight);
+			const start = (2 * y) - halfHeight;
 			const end = tileWidth - start;
 
 			for(let x = start; x < end; x++, i += 2)
@@ -342,7 +341,7 @@ export class SgImageData
 			for(let y = 0; y < sgImage.workRecord.height; y++)
 			{
 				const p1 = y * sgImage.workRecord.width + x;
-				const p2 = (y + 1) * sgImage.workRecord.width - x;
+				const p2 = ((y + 1) * sgImage.workRecord.width) - x;
 
 				const tmp = pixels[p1];
 				pixels[p1] = pixels[p2];
