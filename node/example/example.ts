@@ -50,10 +50,10 @@ const main = async () =>
 					continue;
 				}
 
-				const { width, height, data } = imageData;
+				const { width, height, dataFlat } = imageData;
 
 				const s = sharp(
-					data,
+					dataFlat,
 					{
 						raw: { width, height, channels: 4 /* RGBA */}
 					}

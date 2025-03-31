@@ -21,6 +21,12 @@ export class SgImageData
 	public readonly aMask: number
 
 	public readonly data: Uint32Array;
+	/**
+	 * A flat array of numbers where each group of four is a single RGBA pixel.
+	 */
+	public get dataFlat(): Uint8Array {
+		return new Uint8Array(this.data.buffer);
+	}
 
 	constructor(sgImage: SgImage, filename555: string)
 	{
@@ -44,9 +50,8 @@ export class SgImageData
 			throw new Error("Failed to read image data");
 		}
 
-		const BYTES_PER_PIXEL = 4; // RGBA
 		const pixels = new Uint32Array(
-			sgImage.workRecord.width * sgImage.workRecord.height * BYTES_PER_PIXEL
+			sgImage.workRecord.width * sgImage.workRecord.height
 		).fill(0);
 
 		switch(sgImage.workRecord.type)
