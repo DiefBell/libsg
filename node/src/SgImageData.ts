@@ -11,16 +11,6 @@ export class SgImageData
     public static readonly ISOMETRIC_LARGE_TILE_WIDTH = 78;
     public static readonly ISOMETRIC_LARGE_TILE_HEIGHT = 40;
     public static readonly ISOMETRIC_LARGE_TILE_BYTES = 320;
-
-	public readonly width: number;
-	public readonly height: number;
-
-	public readonly rMask: number;
-	public readonly gMask: number
-	public readonly bMask: number
-	public readonly aMask: number
-
-	public readonly data: Uint32Array;
 	/**
 	 * A flat array of numbers where each group of four is a single RGBA pixel.
 	 */
@@ -28,8 +18,24 @@ export class SgImageData
 		return new Uint8Array(this.data.buffer);
 	}
 
-	constructor(sgImage: SgImage, filename555: string)
+	constructor(
+		public readonly width: number,
+		public readonly height: number,
+	
+		public readonly rMask: number,
+		public readonly gMask: number,
+		public readonly bMask: number,
+		public readonly aMask: number,
+	
+		public readonly data: Uint32Array
+	)
 	{
+	}
+
+	public static from555File(
+		sgImage: SgImage,
+		filename555: string
+	): SgImageData {
 		if (!sgImage.parent)
 		{
 			throw new Error("Image has no bitmap parent");
@@ -85,16 +91,21 @@ export class SgImageData
 
 		if(sgImage.invert) this.mirrorResult(sgImage, pixels);
 
-		this.width = sgImage.workRecord.width;
-		this.height = sgImage.workRecord.height;
-		this.rMask = 0x000000ff;
-		this.gMask = 0x0000ff00;
-		this.bMask = 0x00ff0000;
-		this.aMask = 0xff000000;
-		this.data = pixels;
+		const width = sgImage.workRecord.width;
+		const height = sgImage.workRecord.height;
+		const rMask = 0x000000ff;
+		const gMask = 0x0000ff00;
+		const bMask = 0x00ff0000;
+		const aMask = 0xff000000;
+
+		return new SgImageData(
+			width, height,
+			rMask, gMask, bMask, aMask,
+			pixels
+		);
 	}
 
-	private loadPlainImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
+	private static loadPlainImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
 		if(sgImage.workRecord.height * sgImage.workRecord.width * 2 !== sgImage.workRecord.length) {
 			throw new Error("Image data length does not match image size");
@@ -117,7 +128,7 @@ export class SgImageData
 	 * @param pixels 
 	 * @param buffer 
 	 */
-	private loadIsometricImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
+	private static loadIsometricImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
 		this.writeIsometricBase(sgImage, pixels, buffer);
 		this.writeTransparentImage(
@@ -127,12 +138,12 @@ export class SgImageData
 			sgImage.workRecord.length - sgImage.workRecord.uncompressedLength);
 	}
 
-	private loadSpriteImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
+	private static loadSpriteImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
 		this.writeTransparentImage(sgImage, pixels, buffer, sgImage.workRecord.length);
 	}
 
-	private loadAlphaMask(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
+	private static loadAlphaMask(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
 		const width = sgImage.workRecord.width;
 		const length = sgImage.workRecord.alphaLength;
@@ -165,7 +176,7 @@ export class SgImageData
 		}
 	}
 
-	private writeIsometricBase(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
+	private static writeIsometricBase(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer): void
 	{
 		const width = sgImage.workRecord.width;
 		const height = (width + 2) / 2;
@@ -235,7 +246,7 @@ export class SgImageData
 		}
 	}
 
-	private writeIsometricTile(
+	private static writeIsometricTile(
 		sgImage: SgImage,
 		pixels: Uint32Array,
 		buffer: Buffer,
@@ -283,7 +294,7 @@ export class SgImageData
 		}
 	}
 
-	private writeTransparentImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer, length: number): void
+	private static writeTransparentImage(sgImage: SgImage, pixels: Uint32Array, buffer: Buffer, length: number): void
 	{
 		let i = 0;
 		let x = 0, y = 0;
@@ -312,7 +323,7 @@ export class SgImageData
 		}
 	}
 
-	private set555Pixel(sgImage: SgImage, pixels: Uint32Array, x: number, y: number, color: number): void
+	private static set555Pixel(sgImage: SgImage, pixels: Uint32Array, x: number, y: number, color: number): void
 	{
 		if(color === 0xf81f) return;
 
@@ -330,7 +341,7 @@ export class SgImageData
 		pixels[y * sgImage.workRecord.width + x] = rgb;
 	}
 
-	private setAlphaPixel(sgImage: SgImage, pixels: Uint32Array, x: number, y: number, color: number): void
+	private static setAlphaPixel(sgImage: SgImage, pixels: Uint32Array, x: number, y: number, color: number): void
 	{
 
 		/* Only the first five bits of the alpha channel are used */
@@ -340,7 +351,7 @@ export class SgImageData
 		pixels[p] = (pixels[p] & 0x00ffffff) | (alpha << 24);
 	}
 
-	private mirrorResult(sgImage: SgImage, pixels: Uint32Array): void {
+	private static mirrorResult(sgImage: SgImage, pixels: Uint32Array): void {
 		for(let x = 0; x < (sgImage.workRecord.width - 1) / 2; x++)
 		{
 			for(let y = 0; y < sgImage.workRecord.height; y++)

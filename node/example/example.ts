@@ -43,7 +43,7 @@ const main = async () =>
 
 				let imageData: SgImageData;
 				try {
-					imageData = new SgImageData(image, filename555);
+					imageData = SgImageData.from555File(image, filename555);
 				}
 				catch (err) {
 					// console.error((err as Error).message);
