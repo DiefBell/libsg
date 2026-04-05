@@ -7,7 +7,7 @@ import { SgImageData } from "../src/SgImageData.js";
 
 const main = async () =>
 {
-	const inputFolder = path.join(__dirname, "input");
+	const inputFolder = path.join(__dirname, "..", "..", "..", "input");
 	const outputFolder = path.join(__dirname, "output");
 
 
