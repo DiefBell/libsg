@@ -1,8 +1,13 @@
 {
 	"name": "libsg",
 	"version": "1.0.0",
-	"module": "dist/index.js",
-	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/esm/index.js",
+			"require": "./dist/cjs/index.js",
+			"types": "./dist/esm/index.d.ts"
+		}
+	},
 	"files": [
 		"dist"
 	],
@@ -13,8 +18,8 @@
 		"typescript": "^5.8.2"
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.dist.json",
-		"watch": "tsc -w -p tsconfig.dist.json",
+		"build": "tsc -p tsconfig.dist.cjs.json && tsc -p tsconfig.dist.esm.json",
+		"watch": "tsc -w -p tsconfig.dist.cjs.json",
 		"example": "tsx example/example.ts"
 	},
 	"dependencies": {

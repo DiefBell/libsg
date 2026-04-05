@@ -1,0 +1,10 @@
+{
+	"exclude": ["example"],
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"module": "ES2022",
+		"declaration": true,
+		"noEmit": false,
+		"outDir": "./dist/esm"
+	}
+}

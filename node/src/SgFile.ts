@@ -21,6 +21,11 @@ export class SgFile {
 		}
 	}
 
+	public static fromPath(sg3Path: string): SgFile {
+		const fileHandle = new FileHandle(sg3Path);
+		return SgFile.FromFileHandle(fileHandle);
+	}
+
 	public static FromFileHandle(fileHandle: FileHandle): SgFile {
 		const sgFile = new SgFile(
 			fileHandle.filepath,
