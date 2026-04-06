@@ -543,14 +543,27 @@ export class SgImageData
 	 * decoded from the same pixel data as their source image, then flipped here.
 	 * This gives the game's left/right variants of character animations without
 	 * storing duplicate pixel data.
+	 *
+	 * We iterate over the left half of each row (x < width/2) and swap each pixel
+	 * with its mirror partner on the right: pixel (x, y) ↔ pixel (width-1-x, y).
+	 *
+	 * In flat row-major indices:
+	 *   p1 = y * width + x
+	 *   p2 = y * width + (width - 1 - x)
+	 *      = (y + 1) * width - 1 - x     ← this form avoids a separate multiply
+	 *
+	 * Common off-by-one mistake: using `(y+1)*width - x` (missing the `-1`) puts
+	 * p2 one position too far right, which for x=0 lands on pixel (0, y+1) —
+	 * the first pixel of the *next* row — corrupting the image with cross-row swaps.
 	 */
 	private static mirrorResult(sgImage: SgImage, pixels: Uint32Array): void {
-		for(let x = 0; x < (sgImage.workRecord.width - 1) / 2; x++)
+		const width = sgImage.workRecord.width;
+		for(let x = 0; x < (width - 1) / 2; x++)
 		{
 			for(let y = 0; y < sgImage.workRecord.height; y++)
 			{
-				const p1 = y * sgImage.workRecord.width + x;
-				const p2 = ((y + 1) * sgImage.workRecord.width) - x;
+				const p1 = y * width + x;
+				const p2 = (y + 1) * width - 1 - x;  // = y*width + (width-1-x)
 
 				const tmp = pixels[p1];
 				pixels[p1] = pixels[p2];

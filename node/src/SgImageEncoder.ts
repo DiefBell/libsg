@@ -80,35 +80,37 @@ export class SgImageEncoder {
   }
 
   /**
-   * Encode an alpha mask blob for pixels with partial transparency (0 < alpha < 255).
-   * Returns null if no such pixels exist (no alpha mask needed).
+   * Encode an alpha mask blob for all non-transparent pixels (alpha > 0).
+   * Returns null if every pixel is fully transparent (no alpha mask needed).
    *
    * Wire format: same skip/run structure as loadAlphaMask in SgImageData.
    *   - Skip: byte 0xFF followed by N → advance cursor by N pixels (no alpha written).
    *   - Run:  byte C (1–254) followed by C alpha bytes (5-bit values in low bits).
    *
    * The cursor is a flat scan over all pixels (both opaque and transparent).
-   * Only pixels with 0 < alpha < 255 produce run bytes; all others are skipped.
+   * Only fully-transparent pixels (alpha === 0) produce skip bytes; all others
+   * (including fully-opaque alpha === 255) produce run bytes with their 5-bit alpha.
+   * This matches the original encoder, which encodes alpha=255 pixels as run value 31
+   * so that the game's alpha decoder explicitly sets the alpha for every visible pixel.
    * Stored alpha is 5-bit: alpha_8bit >> 3.
    */
   static encodeAlpha(rgba: Uint8Array, width: number, height: number): Buffer | null {
     const total = width * height
-    let hasPartial = false
+    let hasNonTransparent = false
     for (let i = 0; i < total; i++) {
-      const a = rgba[i * 4 + 3]
-      if (a > 0 && a < 255) { hasPartial = true; break }
+      if (rgba[i * 4 + 3] > 0) { hasNonTransparent = true; break }
     }
-    if (!hasPartial) return null
+    if (!hasNonTransparent) return null
 
     const parts: Buffer[] = []
     let i = 0
 
     while (i < total) {
       const a = rgba[i * 4 + 3]
-      if (a === 0 || a === 255) {
-        // Skip fully-transparent and fully-opaque pixels
+      if (a === 0) {
+        // Skip fully-transparent pixels only
         let skip = 0
-        while (i < total && (rgba[i * 4 + 3] === 0 || rgba[i * 4 + 3] === 255)) {
+        while (i < total && rgba[i * 4 + 3] === 0) {
           skip++; i++
         }
         while (skip > 0) {
@@ -117,9 +119,9 @@ export class SgImageEncoder {
           skip -= n
         }
       } else {
-        // Emit run of partial-alpha pixels (max 254)
+        // Emit run for ALL non-transparent pixels (alpha > 0), including fully-opaque (255 → 5-bit 31)
         const run: number[] = []
-        while (i < total && rgba[i * 4 + 3] > 0 && rgba[i * 4 + 3] < 255 && run.length < 254) {
+        while (i < total && rgba[i * 4 + 3] > 0 && run.length < 254) {
           run.push(rgba[i * 4 + 3] >> 3)  // 8-bit → 5-bit
           i++
         }

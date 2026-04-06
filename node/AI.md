@@ -156,6 +156,30 @@ wrong workRecord — producing corrupted animation frames in-game.
 
 **Fix:** use `readInt32Le` in `SgImageRecord.FromFileHandle`.
 
+### CRITICAL: mirrorResult off-by-one
+
+`SgImageData.mirrorResult` horizontally mirrors the pixel buffer by swapping pixel `(x, y)`
+with pixel `(width-1-x, y)`.  In flat row-major indices:
+
+```
+p1 = y * width + x
+p2 = y * width + (width - 1 - x)   ← correct
+   = (y + 1) * width - 1 - x       ← equivalent, avoids a multiply
+```
+
+An easy mistake is to write `p2 = (y + 1) * width - x` (missing the `- 1`).  For `x = 0`
+this gives `p2 = (y + 1) * width`, which is the first pixel of the **next row** rather than
+the last pixel of the current row.  The swap then rotates the first column of pixels between
+adjacent rows instead of reflecting them, producing completely scrambled pixel data.
+
+**Why this was masked:** Before the `invertOffset` fix, inverted images had `workRecord.length
+= 0` (they carry no pixel data of their own).  `from555File` threw "No image data available"
+for them, the caller's `try/catch` skipped them, and `mirrorResult` was never reached.  After
+fixing `invertOffset`, inverted images decode successfully, `mirrorResult` is called, and the
+garbled result is re-encoded into the new `.555`.  The non-inverted frames look correct; the
+inverted frames are scrambled — producing flickering "static" in the game as the animation
+cycles through both.
+
 ---
 
 ## 8. Image encoding types
@@ -386,3 +410,12 @@ expects this layout for raw RGBA input.
 6. **flags[3] tile size**: When `flags[3]` is 0 the grid size is inferred from the image
    height.  Prefer regular tile height (30) over large (40) when both divide evenly — the
    ambiguity arises at `height = 120` (4×4 regular vs 3×3 large).
+
+7. **mirrorResult off-by-one (fixed)**: See section 7 for a detailed write-up.  The correct
+   p2 formula is `(y + 1) * width - 1 - x`.  The wrong formula `(y + 1) * width - x` was
+   harmless before the `invertOffset` fix but became a critical bug afterwards.
+
+8. **ISOMETRIC_LARGE_TILE_BYTES was 320 (fixed)**: An earlier version had
+   `ISOMETRIC_LARGE_TILE_BYTES = 320` instead of the correct `3200`.  This caused large-tile
+   Emperor isometric images to decode/encode garbage.  The correct value is 3200 bytes per tile
+   (78 × 40 px diamond, packed).
