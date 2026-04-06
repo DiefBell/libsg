@@ -1,6 +1,28 @@
 import { SgImage } from "../SgImage";
 import { ESeekOrigin, FileHandle } from "./FileHandle";
 
+/**
+ * Read (length + alphaLength) bytes from a .555 file into a single Buffer,
+ * using the workRecord's offset and flags to find the correct file position.
+ *
+ * Offset formula:
+ *   The game stores the pixel data position as (absolute_offset + flags[0]).
+ *   To get the real byte position in the .555 file, subtract flags[0]:
+ *     readPosition = workRecord.offset - workRecord.flags[0]
+ *   flags[0] is the "extern" flag in the C source.  For most images it is 0,
+ *   but some images have a non-zero value and the subtraction is always required.
+ *
+ * Buffer layout:
+ *   bytes [0,           length)                     → pixel data
+ *   bytes [length,      length + alphaLength)        → alpha mask (may be empty)
+ *
+ * C3 EOF edge case:
+ *   Some Caesar 3 graphics files have their last image truncated by exactly
+ *   4 bytes.  If we hit EOF exactly 4 bytes short of the expected length, the
+ *   missing bytes are zero-padded rather than throwing an error.
+ *
+ * Returns the populated Buffer (never null; throws on error instead).
+ */
 export const fillBufferFromFileHandle = (img: SgImage, file: FileHandle): Buffer | null =>
 {
 	const dataLength = img.workRecord.length + img.workRecord.alphaLength;
@@ -9,14 +31,10 @@ export const fillBufferFromFileHandle = (img: SgImage, file: FileHandle): Buffer
 		throw new Error(`Data length invalid (${dataLength})`);
 	}
 
-	// Allocate a buffer
 	const buffer = Buffer.alloc(dataLength);
-	if (!buffer)
-	{
-		throw new Error("Could not allocate buffer");
-	}
 
-	// Seek to the appropriate position in the file
+	// workRecord.offset is stored as (absolute_555_position + flags[0]);
+	// subtract flags[0] to get the actual byte offset to read from.
 	const offset = img.workRecord.offset - img.workRecord.flags[0];
 	try
 	{
@@ -26,14 +44,13 @@ export const fillBufferFromFileHandle = (img: SgImage, file: FileHandle): Buffer
 		throw new Error(`Could not seek to ${offset} in file`);
 	}
 
-	// Read data from file
 	const bytesRead = file.read(buffer, 0, dataLength);
 	if (bytesRead !== dataLength)
 	{
-		// Handle C3 graphics special case (last 4 bytes missing)
+		// C3 special case: last image may be 4 bytes short at EOF
 		if (bytesRead + 4 === dataLength && file.eof())
 		{
-			buffer[bytesRead] = 0;
+			buffer[bytesRead]     = 0;
 			buffer[bytesRead + 1] = 0;
 			buffer[bytesRead + 2] = 0;
 			buffer[bytesRead + 3] = 0;

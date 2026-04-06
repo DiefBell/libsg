@@ -47,6 +47,12 @@ interface ImageWriteInfo {
   type: number
   /** Clear invertOffset to 0 in the record (used when a formerly-inverted image is replaced) */
   clearInvert: boolean
+  /**
+   * Original flags[0] value, preserved in the .sg3 record as-is.
+   * record.offset must be stored as (absolute_555_position + flags0) because
+   * the game reads pixel data from (record.offset - flags[0]).
+   */
+  flags0: number
 }
 
 /**
@@ -134,6 +140,7 @@ export class SgFileWriter {
         writeInfo.set(sgImage.imageId, {
           offset: 0, length: 0, alphaLength: 0,
           modified: true, width: 0, height: 0, type: rec.type, clearInvert: false,
+          flags0: rec.flags[0],
         })
         continue
       }
@@ -144,14 +151,17 @@ export class SgFileWriter {
         // Use workRecord.type (the actual displayed type) as the source type, since
         // for inverted images workRecord points to the original they mirror.
         const sourceType = sgImage.workRecord.type
-        const { data, type } = SgImageEncoder.encode(rgba, width, height, sourceType)
+        const { data, alpha, type } = SgImageEncoder.encode(rgba, width, height, sourceType)
+        const alphaLength = alpha?.byteLength ?? 0
         writeInfo.set(sgImage.imageId, {
-          offset: currentOffset, length: data.byteLength, alphaLength: 0,
+          offset: currentOffset, length: data.byteLength, alphaLength,
           modified: true, width, height, type,
           clearInvert: sgImage.invert,
+          flags0: sgImage.record.flags[0],
         })
         parts.push(data)
-        currentOffset += data.byteLength
+        if (alpha) parts.push(alpha)
+        currentOffset += data.byteLength + alphaLength
         continue
       }
 
@@ -162,6 +172,7 @@ export class SgFileWriter {
         writeInfo.set(sgImage.imageId, {
           offset: 0, length: rec.length, alphaLength: rec.alphaLength,
           modified: false, width: rec.width, height: rec.height, type: rec.type, clearInvert: false,
+          flags0: rec.flags[0],
         })
         continue
       }
@@ -171,6 +182,7 @@ export class SgFileWriter {
         writeInfo.set(sgImage.imageId, {
           offset: 0, length: 0, alphaLength: 0,
           modified: false, width: rec.width, height: rec.height, type: rec.type, clearInvert: false,
+          flags0: rec.flags[0],
         })
         continue
       }
@@ -189,6 +201,7 @@ export class SgFileWriter {
       writeInfo.set(sgImage.imageId, {
         offset: currentOffset, length: rec.length, alphaLength: rec.alphaLength,
         modified: false, width: rec.width, height: rec.height, type: rec.type, clearInvert: false,
+        flags0: rec.flags[0],
       })
       parts.push(rawBuf)
       currentOffset += rawLength
@@ -212,9 +225,10 @@ export class SgFileWriter {
       // sgImage.imageId is 1-based (dummy is 0)
       const base = imageRecordBase + sgImage.imageId * recordSize
 
-      // Always: update offset and clear flags[0] so the offset is now absolute
-      sg3Buffer.writeUInt32LE(info.offset, base + F_OFFSET)
-      sg3Buffer.writeUInt8(0, base + F_FLAGS)  // flags[0] = 0
+      // Store offset as (absolute_555_position + flags[0]) so the game's formula
+      // (record.offset - flags[0]) still yields the correct absolute position.
+      // flags[0] itself is left unchanged in the buffer (already the original value).
+      sg3Buffer.writeUInt32LE(info.offset + info.flags0, base + F_OFFSET)
 
       if (info.clearInvert) {
         sg3Buffer.writeInt32LE(0, base + F_INVERT_OFFSET)
@@ -228,13 +242,19 @@ export class SgFileWriter {
         sg3Buffer.writeUInt16LE(info.height, base + F_HEIGHT)
         sg3Buffer.writeUInt16LE(info.type, base + F_TYPE)
         if (includeAlpha) {
-          sg3Buffer.writeUInt32LE(0, base + F_ALPHA_OFFSET)
-          sg3Buffer.writeUInt32LE(0, base + F_ALPHA_LENGTH)
+          if (info.alphaLength > 0) {
+            // Alpha data sits immediately after image data; apply same flags0 adjustment
+            sg3Buffer.writeUInt32LE(info.offset + info.length + info.flags0, base + F_ALPHA_OFFSET)
+            sg3Buffer.writeUInt32LE(info.alphaLength, base + F_ALPHA_LENGTH)
+          } else {
+            sg3Buffer.writeUInt32LE(0, base + F_ALPHA_OFFSET)
+            sg3Buffer.writeUInt32LE(0, base + F_ALPHA_LENGTH)
+          }
         }
       } else if (includeAlpha && info.alphaLength > 0) {
-        // Update alphaOffset for unchanged images that have alpha data
-        // (alpha immediately follows the image data in the .555 file)
-        sg3Buffer.writeUInt32LE(info.offset + info.length, base + F_ALPHA_OFFSET)
+        // Update alphaOffset for unchanged images that have alpha data.
+        // Apply same flags0 adjustment as F_OFFSET so the game reads correctly.
+        sg3Buffer.writeUInt32LE(info.offset + info.length + info.flags0, base + F_ALPHA_OFFSET)
       }
     }
 
