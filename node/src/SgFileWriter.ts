@@ -128,8 +128,12 @@ export class SgFileWriter {
     // --- Pass 1: determine encoded data and new offsets for every image ---
 
     const writeInfo = new Map<number, ImageWriteInfo>()
-    const parts: Buffer[] = []
-    let currentOffset = 0
+    // Prepend 4 null bytes so no image record starts at offset 0.
+    // The game treats F_OFFSET == 0 as a sentinel meaning "no data"; the original
+    // .555 files always pad the start for the same reason.
+    const INITIAL_PADDING = 4
+    const parts: Buffer[] = [Buffer.alloc(INITIAL_PADDING)]
+    let currentOffset = INITIAL_PADDING
 
     for (const sgImage of sgFile.images) {
       const rec = sgImage.record   // always the image's own record
