@@ -95,40 +95,51 @@ export class SgImageEncoder {
    * Stored alpha is 5-bit: alpha_8bit >> 3.
    */
   static encodeAlpha(rgba: Uint8Array, width: number, height: number): Buffer | null {
-    const total = width * height
+    // Quick check: any non-transparent pixel?
     let hasNonTransparent = false
-    for (let i = 0; i < total; i++) {
+    for (let i = 0; i < width * height; i++) {
       if (rgba[i * 4 + 3] > 0) { hasNonTransparent = true; break }
     }
     if (!hasNonTransparent) return null
 
     const parts: Buffer[] = []
-    let i = 0
 
-    while (i < total) {
-      const a = rgba[i * 4 + 3]
-      if (a === 0) {
-        // Skip fully-transparent pixels only
-        let skip = 0
-        while (i < total && rgba[i * 4 + 3] === 0) {
-          skip++; i++
+    // Encode row-by-row — identical structure to encodeSprite.
+    // The game's alpha decoder advances the row counter with a single
+    // `if (x >= width)` check after each command, not a while-loop.
+    // A skip command that spans more than one row boundary would only
+    // advance the row once, permanently misaligning the alpha cursor.
+    // Keeping each command within its row avoids this entirely.
+    for (let y = 0; y < height; y++) {
+      let x = 0
+      while (x < width) {
+        const a = rgba[(y * width + x) * 4 + 3]
+        if (a === 0) {
+          // Skip transparent pixels within this row only
+          let skip = 0
+          while (x < width && rgba[(y * width + x) * 4 + 3] === 0) {
+            skip++; x++
+          }
+          while (skip > 0) {
+            const n = Math.min(skip, 255)
+            parts.push(Buffer.from([0xff, n]))
+            skip -= n
+          }
+        } else {
+          // Run of non-transparent pixels within this row only (max 254)
+          // All pixels with alpha > 0 are emitted, including fully-opaque
+          // (alpha=255 → 5-bit value 31), so the game explicitly sets alpha
+          // for every visible pixel rather than relying on sprite-layer defaults.
+          const run: number[] = []
+          while (x < width && rgba[(y * width + x) * 4 + 3] > 0 && run.length < 254) {
+            run.push(rgba[(y * width + x) * 4 + 3] >> 3)  // 8-bit → 5-bit
+            x++
+          }
+          const chunk = Buffer.allocUnsafe(1 + run.length)
+          chunk[0] = run.length
+          for (let k = 0; k < run.length; k++) chunk[k + 1] = run[k]
+          parts.push(chunk)
         }
-        while (skip > 0) {
-          const n = Math.min(skip, 255)
-          parts.push(Buffer.from([0xff, n]))
-          skip -= n
-        }
-      } else {
-        // Emit run for ALL non-transparent pixels (alpha > 0), including fully-opaque (255 → 5-bit 31)
-        const run: number[] = []
-        while (i < total && rgba[i * 4 + 3] > 0 && run.length < 254) {
-          run.push(rgba[i * 4 + 3] >> 3)  // 8-bit → 5-bit
-          i++
-        }
-        const chunk = Buffer.allocUnsafe(1 + run.length)
-        chunk[0] = run.length
-        for (let k = 0; k < run.length; k++) chunk[k + 1] = run[k]
-        parts.push(chunk)
       }
     }
 
