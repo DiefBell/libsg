@@ -43,6 +43,30 @@ import { fillBufferFromFileHandle } from "./util/fillBufferFromFileHandle";
  *   This matches the layout that sharp expects for raw RGBA input.
  *   (The underlying .555 RGB555 format stores Red in bits 14-10, Green in
  *   bits 9-5, Blue in bits 4-0 — the same channel order as output RGBA.)
+ *
+ * @example
+ * ```typescript
+ * import { SgFile, SgImageData } from 'libsg'
+ * import sharp from 'sharp'
+ *
+ * const sgFile = SgFile.fromPath('/path/to/China_NuWa.sg3')
+ * const file555 = '/path/to/China_NuWa.555'
+ *
+ * const bitmap = sgFile.bitmaps[0]
+ * for (const img of bitmap.images) {
+ *   if (img.invert) continue                   // mirrored copy — pixel data lives on another image
+ *   if (img.workRecord.length <= 0) continue   // empty slot
+ *
+ *   const imgData = SgImageData.from555File(img, file555)
+ *   // imgData.dataFlat: Uint8Array of RGBA bytes, directly usable by sharp
+ *
+ *   const pngBuffer = await sharp(Buffer.from(imgData.dataFlat), {
+ *     raw: { width: imgData.width, height: imgData.height, channels: 4 },
+ *   }).png().toBuffer()
+ *
+ *   console.log(`Image ${img.imageId}: ${imgData.width}×${imgData.height}, type ${img.workRecord.type}`)
+ * }
+ * ```
  */
 export class SgImageData
 {
@@ -120,7 +144,9 @@ export class SgImageData
 			throw new Error("No image data available");
 		}
 
-		const fileHandle555 = new FileHandle(filename555, "r");
+		// `using` calls fileHandle555[Symbol.dispose]() (i.e. close()) at end of scope,
+		// compiled by TypeScript to a try/finally — no manual close needed.
+		using fileHandle555 = new FileHandle(filename555, "r");
 		// fillBufferFromFileHandle reads (length + alphaLength) bytes starting at
 		// (workRecord.offset - workRecord.flags[0]) in the .555 file.
 		const buffer = fillBufferFromFileHandle(sgImage, fileHandle555);

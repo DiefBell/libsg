@@ -34,6 +34,7 @@ for (const [bi, bitmap] of sgFile.bitmaps.entries()) {
   console.log(`Bitmap ${bi}: ${bitmap.record.sgFilename}`)
 
   for (const [ii, img] of bitmap.images.entries()) {
+    if (img.invert) continue              // mirrored copy — pixel data lives on another image
     if (img.workRecord.length <= 0) continue  // empty slot
 
     const file555 = '/path/to/Buildings.555'
@@ -137,10 +138,16 @@ class SgImage {
   readonly imageId: number           // 1-based index in SgFile.images
   readonly record: SgImageRecord     // this image's own on-disk record
   readonly workRecord: SgImageRecord // record to use for decoding (differs for mirrored images)
-  readonly invert: boolean           // true if this is a horizontally-mirrored copy
+  readonly invert: boolean           // true if this is a horizontally-mirrored copy of another image
   readonly parent: SgBitmap | null
 }
 ```
+
+When iterating images to decode or replace, **always skip inverted images** with `if (img.invert) continue`.
+Inverted images store no pixel data of their own (`record.length === 0`); the game mirrors the source
+image's pixels at render time.  Decoding `workRecord` gives you the source pixels — after `from555File`
+returns, the buffer is already horizontally mirrored.  When writing back via `SgFileWriter`, skipping
+inverted images is mandatory: replacing them would store their own data and bloat the `.555` file.
 
 **`record` vs `workRecord`**: for most images they are identical.  For *inverted* images
 (`invert === true`), `workRecord` points to the source image's record (the one that has the
@@ -199,6 +206,12 @@ class SgImageData {
 byte 0 = R, byte 1 = G, byte 2 = B, byte 3 = A.  This is directly compatible with
 [sharp](https://sharp.pixelplumbing.com/)'s raw input format.
 
+`from555File` opens the `.555` file, reads the required bytes, and **closes the file handle
+before returning** using the TypeScript 5.2 `using` keyword (`Symbol.dispose`).  You can call
+it in a tight loop over thousands of images without exhausting the OS file-descriptor limit.
+(Requires `"lib": ["ESNext.Disposable"]` in `tsconfig.json`, which this package already
+includes in its own `tsconfig.json`.)
+
 ```typescript
 // Example: convert to PNG using sharp
 import sharp from 'sharp'
@@ -235,6 +248,9 @@ Notes:
 - Inverted images that are not replaced keep their `invertOffset` intact.
 - Replacing an inverted image clears its `invertOffset` and stores new pixel data directly.
 - Semi-transparent pixels in replacement images are preserved via an alpha mask blob.
+- The output `.555` file always starts with 4 bytes of zero padding so that no image data
+  begins at absolute offset 0.  The game treats a stored offset of 0 as "no data" (a sentinel),
+  so any image that landed at offset 0 would be invisible in-game.
 
 ---
 
@@ -254,10 +270,23 @@ class SgImageEncoder {
   // Sprite RLE (row-by-row; commands never cross row boundaries)
   static encodeSprite(rgba: Uint8Array, width: number, height: number): Buffer
 
-  // Alpha mask blob; returns null if no partial-alpha pixels exist
+  // Alpha mask blob; returns null if no pixels have alpha > 0
   static encodeAlpha(rgba: Uint8Array, width: number, height: number): Buffer | null
 }
 ```
+
+**Encoding constraints** (violating these causes game rendering corruption):
+
+- **Both sprite and alpha encoders are row-by-row.** A skip or run command must never
+  cross a row boundary.  The game's sprite decoder is flat-scan, but the alpha decoder
+  uses a single `if (x >= width)` to advance rows — a multi-row skip only advances `y`
+  once, misaligning all subsequent pixels.
+
+- **`encodeAlpha` encodes every pixel with `alpha > 0`**, not just partially-transparent ones.
+  Opaque pixels (`alpha === 255`) are encoded as runs of value 31 (5-bit maximum).  The game
+  may not set alpha during the sprite pass; it relies on the alpha mask to make fully-opaque
+  pixels visible.  Omitting opaque pixels from the mask results in sprites that appear
+  invisible or render as TV static.
 
 `encode` type selection:
 - Types 0, 1, 10, 12, 13 → `encodePlain`; type unchanged
